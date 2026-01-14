@@ -1,6 +1,6 @@
 # OpenCode Session Activity Monitor
 
-A transparent, always-on-top, click-through overlay for monitoring OpenCode sessions on Hyprland/Wayland.
+A transparent, always-on-top overlay for monitoring OpenCode sessions on **macOS** and **Linux (Hyprland/Wayland)**.
 
 ## Features
 
@@ -17,6 +17,11 @@ A transparent, always-on-top, click-through overlay for monitoring OpenCode sess
 
 ## Requirements
 
+**macOS:**
+- macOS 11+
+- Python 3.11+
+
+**Linux (Hyprland):**
 - Arch Linux with Hyprland (or any wlroots-based compositor)
 - Python 3.11+
 - GTK4 + gtk4-layer-shell
@@ -26,6 +31,34 @@ sudo pacman -S python-gobject gtk4 gtk4-layer-shell
 ```
 
 ## Installation
+
+### macOS
+
+```bash
+git clone <repo>
+cd opencode-activity-monitor
+chmod +x install-macos.sh
+./install-macos.sh
+```
+
+The installer will:
+- Install Python dependencies (`pyobjc`, `psutil`)
+- Copy app files to `~/Library/Application Support/opencode-activity-monitor/`
+- Create a LaunchAgent for auto-start at login
+- Prompt to start the app immediately
+
+**Start/Stop:**
+```bash
+launchctl load ~/Library/LaunchAgents/com.opencode.activity-monitor.plist    # Start
+launchctl unload ~/Library/LaunchAgents/com.opencode.activity-monitor.plist  # Stop
+```
+
+**Uninstall:**
+```bash
+./uninstall-macos.sh
+```
+
+### Linux (Hyprland)
 
 ```bash
 git clone <repo>
@@ -41,7 +74,7 @@ opencode-activity-monitor              # Start overlay
 opencode-activity-monitor-toggle       # Toggle click-through mode
 ```
 
-### Hyprand Keybind
+### Hyprland Keybind
 
 Add to `~/.config/hypr/hyprland.conf`:
 
@@ -49,9 +82,20 @@ Add to `~/.config/hypr/hyprland.conf`:
 bind = SUPER SHIFT, Q, exec, opencode-activity-monitor-toggle
 ```
 
+### macOS Menu Bar
+
+- **Click menu bar icon** (terminal symbol) to access controls:
+  - **Show/Hide Overlay** - Toggle overlay visibility
+  - **Toggle Click-Through** - Enable/disable mouse passthrough
+  - **Quit** - Exit the application
+- Auto-starts at login (configurable via LaunchAgent)
+- Logs available in `~/Library/Logs/opencode-activity-monitor.log`
+
 ## Configuration
 
-Edit `~/.config/opencode-activity-monitor/config.toml`:
+**macOS:** Edit `~/Library/Application Support/opencode-activity-monitor/config.toml`
+
+**Linux:** Edit `~/.config/opencode-activity-monitor/config.toml`
 
 ```toml
 # Monitor settings
@@ -88,6 +132,15 @@ After editing, restart: `pkill -f opencode-activity-monitor && opencode-activity
 
 ## Files
 
+**macOS:**
+```
+~/Library/Application Support/opencode-activity-monitor/  # Application files
+~/Library/Application Support/opencode-activity-monitor/config.toml  # Config
+~/Library/Logs/opencode-activity-monitor.log  # Logs
+~/Library/LaunchAgents/com.opencode.activity-monitor.plist  # Auto-start
+```
+
+**Linux:**
 ```
 ~/.config/opencode-activity-monitor/config.toml   # Configuration
 ~/.local/share/opencode-activity-monitor/main.py  # Application
@@ -97,6 +150,12 @@ After editing, restart: `pkill -f opencode-activity-monitor && opencode-activity
 
 ## Manual Run
 
+**macOS:**
+```bash
+python3 -m macos.main
+```
+
+**Linux:**
 ```bash
 LD_PRELOAD=/usr/lib/libgtk4-layer-shell.so python3 src/main.py
 ```
