@@ -2,8 +2,6 @@
 
 A transparent, always-on-top, click-through overlay for monitoring OpenCode sessions on Hyprland/Wayland.
 
-**Disclaimer:** This is a community project for OpenCode and is not maintained by the OpenCode creators.
-
 ## Features
 
 - **Transparent overlay** - Configurable opacity, sits on top of everything
@@ -14,6 +12,8 @@ A transparent, always-on-top, click-through overlay for monitoring OpenCode sess
 - **Real-time updates** - Configurable refresh interval
 - **Status indicators** - Green/orange/red based on session activity (active, idle, stale)
 - **Easy config** - Well-commented TOML config file
+
+<img width="608" height="324" alt="screenshot-2026-01-14_13-56-29" src="https://github.com/user-attachments/assets/dda429ec-3a35-43ec-b8d8-b19cb728aaa4" />
 
 ## Requirements
 
@@ -100,6 +100,8 @@ After editing, restart: `pkill -f opencode-activity-monitor && opencode-activity
 ```bash
 LD_PRELOAD=/usr/lib/libgtk4-layer-shell.so python3 src/main.py
 ```
+
+## **Disclaimer:** This is a community project for OpenCode and is not maintained by the OpenCode creators.
 
 ## License
 
