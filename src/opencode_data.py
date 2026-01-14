@@ -5,6 +5,13 @@ import time
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Set
 
+from src.platform import (
+    get_process_cpu_time,
+    get_process_cwd,
+    process_exists,
+    find_opencode_processes
+)
+
 
 @dataclass
 class Session:
@@ -41,14 +48,7 @@ _TITLE_CACHE_TTL = 60
 
 
 def get_cpu_time(pid: int) -> Optional[int]:
-    try:
-        with open(f"/proc/{pid}/stat", "r") as f:
-            parts = f.read().split()
-            utime = int(parts[13])
-            stime = int(parts[14])
-            return utime + stime
-    except (OSError, IndexError, ValueError):
-        return None
+    return get_process_cpu_time(pid)
 
 
 def is_process_active(pid: int, threshold_ticks: int = 10) -> tuple[bool, float]:
@@ -91,24 +91,14 @@ def is_process_active(pid: int, threshold_ticks: int = 10) -> tuple[bool, float]
 def get_running_processes() -> List[dict]:
     processes = []
 
-    try:
-        output = subprocess.check_output(
-            ["pgrep", "-a", "opencode"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    proc_list = find_opencode_processes()
+
+    if not proc_list:
         return []
 
-    if not output:
-        return []
-
-    for line in output.split('\n'):
-        if not line.strip():
-            continue
-
-        parts = line.split(' ', 1)
-        pid = parts[0]
-        cmdline = parts[1] if len(parts) > 1 else "opencode"
+    for proc in proc_list:
+        pid = proc['pid']
+        cmdline = proc['cmdline']
 
         args = cmdline.split()
 
@@ -124,9 +114,8 @@ def get_running_processes() -> List[dict]:
         if '/opencode run' in cmdline or 'extension-host' in cmdline:
             continue
 
-        try:
-            cwd = os.readlink(f"/proc/{pid}/cwd")
-        except OSError:
+        cwd = get_process_cwd(pid)
+        if not cwd:
             continue
 
         session_id = None
@@ -138,7 +127,7 @@ def get_running_processes() -> List[dict]:
                 agent_name = args[i + 1]
 
         processes.append({
-            'pid': int(pid),
+            'pid': pid,
             'cwd': cwd,
             'session_id': session_id,
             'agent': agent_name,
@@ -282,6 +271,6 @@ def fetch_data() -> List[Session]:
 
 
 def cleanup_stale_pids():
-    stale = [pid for pid in _cpu_state if not os.path.exists(f"/proc/{pid}")]
+    stale = [pid for pid in _cpu_state if not process_exists(pid)]
     for pid in stale:
         del _cpu_state[pid]

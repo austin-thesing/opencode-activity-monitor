@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "Detected macOS. Running macOS installer..."
+    exec "$(dirname "$0")/install-macos.sh"
+fi
+
 INSTALL_DIR="$HOME/.local/share/opencode-activity-monitor"
 CONFIG_DIR="$HOME/.config/opencode-activity-monitor"
 BIN_DIR="$HOME/.local/bin"

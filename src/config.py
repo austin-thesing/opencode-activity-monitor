@@ -5,6 +5,8 @@ OpenCode Session Activity Monitor - Configuration loading
 from pathlib import Path
 import tomllib
 
+from src.platform import get_config_dir
+
 
 DEFAULT_CONFIG = {
     "monitor": {
@@ -50,7 +52,7 @@ def deep_merge(base: dict, override: dict) -> dict:
 def load_config() -> dict:
     """Load config from TOML."""
     config_paths = [
-        Path.home() / ".config" / "opencode-activity-monitor" / "config.toml",
+        get_config_dir() / "config.toml",
         Path(__file__).parent.parent / "config.toml",
         Path(__file__).parent / "config.toml",
     ]
