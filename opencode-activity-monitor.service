@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenCode Activity Monitor Overlay
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/opencode-activity-monitor
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
