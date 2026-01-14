@@ -114,7 +114,13 @@ class SessionOverlay(Gtk.Window):
         else:
             self.show()
             self.present()
-            GLib.idle_add(self.update_input_region)
+        width = CONFIG["appearance"]["width"]
+        self.set_default_size(width, 1)
+        self.set_size_request(width, -1)
+        self.content_box.queue_resize()
+        self.queue_resize()
+        GLib.idle_add(self.update_input_region)
+
 
     def refresh_data(self) -> bool:
         def fetch():
@@ -123,6 +129,21 @@ class SessionOverlay(Gtk.Window):
             GLib.idle_add(self.update_ui, data_response)
         threading.Thread(target=fetch, daemon=True).start()
         return True
+
+    def _request_compact_height(self):
+        width = CONFIG["appearance"]["width"]
+        self.set_default_size(width, 1)
+        self.set_size_request(width, 1)
+        self.content_box.queue_resize()
+        self.queue_resize()
+        GLib.idle_add(self._relax_height)
+
+    def _relax_height(self):
+        width = CONFIG["appearance"]["width"]
+        self.set_size_request(width, -1)
+        self.content_box.queue_resize()
+        self.queue_resize()
+        return False
 
     def update_ui(self, sessions: list[opencode_data.Session]):
         while child := self.content_box.get_first_child():
@@ -135,6 +156,7 @@ class SessionOverlay(Gtk.Window):
             lbl.add_css_class("status-idle")
             lbl.set_halign(Gtk.Align.CENTER)
             self.content_box.append(lbl)
+            self._request_compact_height()
             return
 
         header = Gtk.Label()
@@ -155,4 +177,6 @@ class SessionOverlay(Gtk.Window):
             )
             self.content_box.append(row)
 
+        self._request_compact_height()
         GLib.idle_add(self.update_input_region)
+
