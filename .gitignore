@@ -4,5 +4,4 @@ __pycache__/
 .mypy_cache/
 main.log
 *.log
-main.log
-*.log
+.opencode/
