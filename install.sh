@@ -37,11 +37,22 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     
     exec bash "$SCRIPT_DIR/omarchy/install.sh"
     
+elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+    echo "Detected: Windows"
+    echo ""
+    echo "Please run the PowerShell installer instead:"
+    echo "  powershell -ExecutionPolicy Bypass -File windows/install.ps1"
+    echo ""
+    echo "Or with startup option:"
+    echo "  powershell -ExecutionPolicy Bypass -File windows/install.ps1 -AddToStartup"
+    exit 1
+    
 else
     echo "Error: Unsupported platform: $OSTYPE"
     echo ""
     echo "Supported platforms:"
     echo "  - macOS (darwin)"
     echo "  - Linux (Hyprland/Wayland)"
+    echo "  - Windows (use PowerShell installer)"
     exit 1
 fi

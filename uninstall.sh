@@ -33,6 +33,13 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     
     exec bash "$SCRIPT_DIR/omarchy/uninstall.sh"
     
+elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+    echo "Detected: Windows"
+    echo ""
+    echo "Please run the PowerShell uninstaller instead:"
+    echo "  powershell -ExecutionPolicy Bypass -File windows/uninstall.ps1"
+    exit 1
+    
 else
     echo "Error: Unsupported platform: $OSTYPE"
     exit 1

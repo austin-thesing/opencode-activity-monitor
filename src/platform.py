@@ -1,5 +1,6 @@
 """Cross-platform platform abstraction layer."""
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -16,10 +17,23 @@ def is_linux() -> bool:
     return sys.platform.startswith("linux")
 
 
+def is_windows() -> bool:
+    """Check if running on Windows (32-bit or 64-bit)."""
+    # Note: sys.platform is "win32" for both 32-bit and 64-bit Windows
+    return sys.platform == "win32"
+
+
 def get_config_dir() -> Path:
     """Get platform-appropriate config directory."""
     if is_macos():
         return Path.home() / "Library" / "Application Support" / "opencode-activity-monitor"
+    elif is_windows():
+        # Use APPDATA (typically C:\Users\<user>\AppData\Roaming)
+        appdata = os.environ.get('APPDATA', '')
+        if appdata:
+            return Path(appdata) / "opencode-activity-monitor"
+        # Fallback to home directory
+        return Path.home() / ".opencode-activity-monitor"
     else:
         return Path.home() / ".config" / "opencode-activity-monitor"
 
