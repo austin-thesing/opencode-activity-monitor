@@ -61,7 +61,7 @@ cat > "$PLIST_PATH" << EOF
     <string>com.opencode.activity-monitor</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$INSTALL_DIR/launcher.sh</string>
+        <string>$HOME/Library/Application Support/opencode-activity-monitor/launcher.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
