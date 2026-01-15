@@ -53,9 +53,7 @@ class AppDelegate(NSObject):
     def refresh_(self, timer):
         """Refresh session data and update overlay."""
         import sys
-        print(f"[DEBUG] refresh_ called at {timer.fireDate()}", file=sys.stderr)
         sessions = opencode_data.fetch_data()
-        print(f"[DEBUG] Found {len(sessions)} sessions", file=sys.stderr)
         self.overlay.update_sessions(sessions)
         
         # Update position based on menu bar icon
