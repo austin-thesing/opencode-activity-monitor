@@ -2,140 +2,148 @@
 
 ## Overview
 
-Transparent GTK4 overlay for monitoring OpenCode session activity on Hyprland/Wayland. Python 3.11+, uses gtk4-layer-shell for Wayland integration.
+Cross-platform overlay for monitoring OpenCode session activity. Supports **macOS** (menu bar app) and **Linux/Hyprland** (Wayland overlay).
 
 **Key characteristics:**
 - Single-language Python project
+- Platform-specific implementations: `macos/` and `omarchy/`
+- Shared core logic in `src/`
 - Configuration via TOML
-- Signal-based inter-process communication (USR1/USR2)
-- No package manager or test suite
+- Cross-platform process detection via `psutil`
 
 ## Project Structure
 
 ```
 opencode-activity-monitor/
-├── src/
-│   ├── main.py            # Application entry point, signal handlers
-│   ├── overlay.py         # GTK4 overlay window, UI refresh logic
-│   ├── ui.py              # CSS generation and widget styling
-│   ├── config.py          # TOML config loading with defaults
-│   ├── opencode_data.py   # OpenCode session data fetching
-│   ├── tray_manager.py    # Tray process launcher
-│   ├── tray.py            # System tray icon (GTK3, AyatanaAppIndicator)
+├── src/                     # Shared cross-platform code
+│   ├── config.py            # TOML config loading with defaults
+│   ├── opencode_data.py     # OpenCode session data fetching
+│   ├── platform.py          # Cross-platform abstractions (psutil)
 │   └── __init__.py
-├── config.toml            # User configuration template
-├── install.sh             # Installation script
-└── README.md              # User documentation
+├── omarchy/                 # Linux/Hyprland implementation
+│   ├── main.py              # Application entry point, signal handlers
+│   ├── overlay.py           # GTK4 overlay window, UI refresh logic
+│   ├── ui.py                # CSS generation and widget styling
+│   ├── tray.py              # System tray icon (GTK3, AyatanaAppIndicator)
+│   ├── tray_manager.py      # Tray process launcher
+│   ├── install.sh           # Linux installer
+│   ├── uninstall.sh         # Linux uninstaller
+│   └── __init__.py
+├── macos/                   # macOS implementation
+│   ├── main.py              # Application entry point (PyObjC)
+│   ├── overlay.py           # NSWindow overlay with vibrancy
+│   ├── menu_bar.py          # NSStatusBar menu bar icon
+│   ├── install.sh           # macOS installer
+│   ├── uninstall.sh         # macOS uninstaller
+│   └── __init__.py
+├── install.sh               # Platform router (detects OS, runs correct installer)
+├── uninstall.sh             # Platform router (uninstall)
+├── config.toml              # User configuration template
+├── requirements.txt         # Python dependencies
+└── README.md                # User documentation
 ```
 
 ## Development Workflow
 
 ### Running from Source
 
+**Linux (Hyprland):**
 ```bash
-# Manual execution (requires gtk4-layer-shell)
-LD_PRELOAD=/usr/lib/libgtk4-layer-shell.so python3 src/main.py
+LD_PRELOAD=/usr/lib/libgtk4-layer-shell.so python3 -m omarchy.main
 
 # Toggle click-through mode (sends SIGUSR1)
-kill -USR1 $(pgrep -f "src.main")
+kill -USR1 $(pgrep -f "omarchy.main")
 
 # Toggle visibility (sends SIGUSR2)
-kill -USR2 $(pgrep -f "src.main")
+kill -USR2 $(pgrep -f "omarchy.main")
+```
+
+**macOS:**
+```bash
+python3 -m macos.main
 ```
 
 ### Installation
 
 ```bash
-./install.sh  # Copies to ~/.local/share/opencode-activity-monitor and sets up PATH
+./install.sh  # Auto-detects platform and runs appropriate installer
 ```
 
-**Install locations:**
+**Linux install locations:**
 - App: `~/.local/share/opencode-activity-monitor/`
 - Config: `~/.config/opencode-activity-monitor/config.toml`
-- Binaries: `~/.local/bin/opencode-activity-monitor`, `opencode-activity-monitor-toggle`, `opencode-activity-monitor-visibility`
-- Systemd service: `~/.config/systemd/user/opencode-activity-monitor.service
+- Binaries: `~/.local/bin/opencode-activity-monitor*`
+- Systemd: `~/.config/systemd/user/opencode-activity-monitor.service`
 
-### Runtime Control
-
-The application responds to UNIX signals:
-- `SIGUSR1` → Toggle click-through mode
-- `SIGUSR2` → Show/hide overlay
-- `SIGTERM` → Graceful shutdown
+**macOS install locations:**
+- App: `~/Library/Application Support/opencode-activity-monitor/`
+- Config: `~/Library/Application Support/opencode-activity-monitor/config.toml`
+- LaunchAgent: `~/Library/LaunchAgents/com.opencode.activity-monitor.plist`
+- Logs: `~/Library/Logs/opencode-activity-monitor.log`
 
 ## Architecture
 
-### Configuration Loading (@src/config.py)
+### Shared Code (`src/`)
 
-- Uses `tomllib` (Python 3.11+ standard library)
-- Search order: repo root `config.toml` → `src/config.toml`
+#### Configuration Loading (`src/config.py`)
+- Uses `tomllib` (Python 3.11+) or `tomli` (Python 3.9+)
+- Search order: platform config dir → repo root `config.toml`
 - Deep merge: user config overrides `DEFAULT_CONFIG` dict
 - Exported as `CONFIG` singleton
 
-### Session Data Fetching (@src/opencode_data.py)
-
-- Scans `/proc` for running `opencode` processes via `pgrep`
+#### Session Data Fetching (`src/opencode_data.py`)
+- Uses `psutil` for cross-platform process discovery
 - Matches processes to session metadata from `opencode session list --format json`
 - Key dataclass: `Session` (id, title, project, path, status, last_active_fmt)
-- Process filtering: excludes helper processes (run, x, acp, serve, extension-host, completion)
-- Matching priority: CLI session ID → CWD (most recent for directory)
+- Process filtering: excludes helper processes (run, x, acp, serve, etc.)
+- CPU-based activity detection for status (active/idle/stale)
 
-### Main Application (@src/main.py)
+#### Platform Abstraction (`src/platform.py`)
+- `is_macos()` / `is_linux()`: Platform detection
+- `get_config_dir()`: Platform-appropriate config path
+- `find_opencode_processes()`: Cross-platform process discovery
+- `get_process_cwd()` / `get_process_cpu_time()`: Process introspection
 
-**Data flow:**
-1. Spawn tray process (monitor parent PID)
-2. Initialize overlay window with layer shell
-3. Refresh session data every `CONFIG["monitor"]["refresh_interval_ms"]`
-4. Update GTK widgets via `GLib.idle_add()`
+### Linux Implementation (`omarchy/`)
 
-**Signal handlers:**
-- `SIGUSR1` → Toggle click-through mode
-- `SIGUSR2` → Show/hide overlay
-- `SIGTERM`/`SIGINT` → Graceful shutdown
+**Main Application (`omarchy/main.py`):**
+- GTK4 application with signal handlers
+- Spawns tray process (monitor parent PID)
+- SIGUSR1/SIGUSR2 for toggle controls
 
-**Wayland integration:**
-- `Gtk4LayerShell.LayerShell` for layer surface
-- Dynamic input region: calculate bounds of interactive widgets only
-- Click-through mode: empty input region = full passthrough
+**Overlay Window (`omarchy/overlay.py`):**
+- GTK4 + gtk4-layer-shell for Wayland integration
+- Dynamic input region for click-through mode
+- Threaded data refresh
 
-### UI Components (@src/ui.py)
+**System Tray (`omarchy/tray.py`):**
+- GTK3 + AyatanaAppIndicator3 (separate process)
+- Menu: Show/Hide, Toggle Click-through, Exit
 
-- `get_css()`: Generates CSS from config (colors, opacity, spacing)
-- CSS classes: `.overlay-main`, `.provider-name`, `.session-project`, `.session-status`
-- Dynamic widget styling based on session status (working/idle)
+### macOS Implementation (`macos/`)
 
-### System Tray (@src/tray.py)
+**Main Application (`macos/main.py`):**
+- PyObjC NSApplication with AppDelegate
+- NSTimer-based refresh loop
+- Menu bar actions via @objc.IBAction
 
-- Runs as separate process (spawned by main.py)
-- GTK3 + AyatanaAppIndicator3 (NOT GTK4)
-- Parent process monitoring: exits if main.py dies
-- Menu items: Show/Hide, Toggle Click-through, Exit
+**Overlay Window (`macos/overlay.py`):**
+- NSWindow with NSVisualEffectView (HUDWindow material)
+- Draggable window with position memory
+- Click-through via setIgnoresMouseEvents_
+
+**Menu Bar (`macos/menu_bar.py`):**
+- NSStatusBar with SF Symbols icon
+- Menu: Show/Hide, Toggle Click-through, Reset Position, Quit
 
 ## Code Style Guidelines
 
 ### Python Conventions
-
 - **Type hints:** Required for function signatures and dataclass fields
 - **Dataclasses:** Use for structured data (Session)
-- **Imports:** Group standard library, third-party (gi), local modules
+- **Imports:** Group standard library, third-party, local modules
 - **String formatting:** f-strings preferred
-- **Error handling:** Print to stderr, continue gracefully where possible
-
-### GTK4 Patterns
-
-```python
-# Layer shell initialization
-LayerShell.init_for_window(window)
-LayerShell.set_layer(window, LayerShell.Layer.OVERLAY)
-LayerShell.set_anchor(window, edge, True)
-
-# Dynamic input region (selective click-through)
-rect = Gdk.Rectangle()
-rect.x, rect.y, rect.width, rect.height = widget_bounds
-window.set_input_region([rect])
-
-# Thread-safe UI updates
-GLib.idle_add(callback, *args)
-```
+- **Error handling:** Print to stderr, continue gracefully
 
 ### Configuration Access
 
@@ -147,54 +155,43 @@ opacity = CONFIG["appearance"]["background_opacity"]
 anchor = CONFIG["position"]["anchor"]
 ```
 
-## Systemd Service
-
-```bash
-# Enable and start the service
-systemctl --user enable --now opencode-activity-monitor.service
-
-# Check status
-systemctl --user status opencode-activity-monitor.service
-
-# View logs
-journalctl --user -u opencode-activity-monitor.service -f
-```
-
 ## Common Tasks
 
 ### Add New Configuration Option
-
 1. Add key to `DEFAULT_CONFIG` in `src/config.py`
 2. Add documentation comment to `config.toml`
 3. Use via `CONFIG["section"]["key"]`
 
 ### Modify Session Data Display
+Edit `Session` dataclass in `src/opencode_data.py` or UI rendering in:
+- Linux: `omarchy/ui.py` → `make_session_row()`
+- macOS: `macos/overlay.py` → `update_sessions()`
 
-Edit `Session` dataclass in `src/opencode_data.py` or `make_session_row()` in `src/ui.py` to change display format.
-
-### Change Widget Styling
-
-Modify `get_css()` in `src/ui.py` to add new CSS rules or adjust existing ones.
-
-### Debugging
-
-Run with verbose output: main.py prints to stdout/stderr. Check logs via:
-```bash
-opencode-activity-monitor 2>&1 | tee debug.log
-```
+### Add Platform-Specific Feature
+1. Implement in `omarchy/` or `macos/` directory
+2. Use `src/platform.py` for any shared cross-platform logic
+3. Update platform-specific installer if needed
 
 ## Dependencies
 
-**System packages (Arch/pacman):**
+**Linux (Arch/pacman):**
 - `python-gobject` (PyGObject bindings)
 - `gtk4` (GUI toolkit)
 - `gtk4-layer-shell` (Wayland layer shell)
-- `libayatana-appindicator` (for tray icon)
+- `python-psutil` (process management)
+- `libayatana-appindicator` (tray icon)
 
-**Python standard library only** - no pip packages required.
+**macOS:**
+- `pyobjc-core` (Python-ObjC bridge)
+- `pyobjc-framework-Cocoa` (AppKit/Foundation)
+- `psutil` (process management)
 
 ## Platform Constraints
 
-- **Hyprland/Wayland only** (not X11-compatible)
-- Requires wlroots-based compositor
-- Uses Python 3.11+ `tomllib` module
+**Linux:**
+- Hyprland/Wayland only (wlroots-based compositor)
+- Uses gtk4-layer-shell for overlay
+
+**macOS:**
+- macOS 11+ (Big Sur or later)
+- Uses NSVisualEffectView for vibrancy

@@ -5,6 +5,13 @@ import time
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Set
 
+from src.platform import (
+    get_process_cpu_time,
+    get_process_cwd,
+    process_exists,
+    find_opencode_processes
+)
+
 
 @dataclass
 class Session:
@@ -41,14 +48,7 @@ _TITLE_CACHE_TTL = 60
 
 
 def get_cpu_time(pid: int) -> Optional[int]:
-    try:
-        with open(f"/proc/{pid}/stat", "r") as f:
-            parts = f.read().split()
-            utime = int(parts[13])
-            stime = int(parts[14])
-            return utime + stime
-    except (OSError, IndexError, ValueError):
-        return None
+    return get_process_cpu_time(pid)
 
 
 def is_process_active(pid: int, threshold_ticks: int = 10) -> tuple[bool, float]:
@@ -91,24 +91,14 @@ def is_process_active(pid: int, threshold_ticks: int = 10) -> tuple[bool, float]
 def get_running_processes() -> List[dict]:
     processes = []
 
-    try:
-        output = subprocess.check_output(
-            ["pgrep", "-a", "opencode"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    proc_list = find_opencode_processes()
+
+    if not proc_list:
         return []
 
-    if not output:
-        return []
-
-    for line in output.split('\n'):
-        if not line.strip():
-            continue
-
-        parts = line.split(' ', 1)
-        pid = parts[0]
-        cmdline = parts[1] if len(parts) > 1 else "opencode"
+    for proc in proc_list:
+        pid = proc['pid']
+        cmdline = proc['cmdline']
 
         args = cmdline.split()
 
@@ -124,9 +114,8 @@ def get_running_processes() -> List[dict]:
         if '/opencode run' in cmdline or 'extension-host' in cmdline:
             continue
 
-        try:
-            cwd = os.readlink(f"/proc/{pid}/cwd")
-        except OSError:
+        cwd = get_process_cwd(pid)
+        if not cwd:
             continue
 
         session_id = None
@@ -138,7 +127,7 @@ def get_running_processes() -> List[dict]:
                 agent_name = args[i + 1]
 
         processes.append({
-            'pid': int(pid),
+            'pid': pid,
             'cwd': cwd,
             'session_id': session_id,
             'agent': agent_name,
@@ -147,40 +136,53 @@ def get_running_processes() -> List[dict]:
     return processes
 
 
-def get_session_title(path: str) -> tuple[str, str]:
+def get_all_sessions_for_path(path: str) -> List[dict]:
+    """Get all sessions for a given path."""
     now = time.time()
-
-    if path in _title_cache:
-        title, session_id, fetched_at = _title_cache[path]
+    cache_key = f"all_{path}"
+    
+    if cache_key in _title_cache:
+        sessions, fetched_at = _title_cache[cache_key]
         if now - fetched_at < _TITLE_CACHE_TTL:
-            return (title, session_id)
+            return sessions
 
     try:
         output = subprocess.check_output(
-            ["opencode", "session", "list", "--format", "json", "--max-count", "5"],
+            ["opencode", "session", "list", "--format", "json", "--max-count", "20"],
             stderr=subprocess.DEVNULL,
             cwd=path,
             timeout=2,
         )
         sessions = json.loads(output)
-
-        for sess in sessions:
-            if sess.get('directory') == path:
-                title = sess.get('title', 'Session')
-                session_id = sess.get('id', '')
-                _title_cache[path] = (title, session_id, now)
-                return (title, session_id)
-
-        if sessions:
-            title = sessions[0].get('title', 'Session')
-            session_id = sessions[0].get('id', '')
-            _title_cache[path] = (title, session_id, now)
-            return (title, session_id)
+        
+        # Filter to sessions matching this directory
+        matching = [s for s in sessions if s.get('directory') == path]
+        _title_cache[cache_key] = (matching, now)
+        return matching
 
     except (subprocess.CalledProcessError, FileNotFoundError,
             subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
         pass
 
+    return []
+
+
+def get_session_title(path: str, session_id: Optional[str] = None) -> tuple[str, str]:
+    """Get session title, optionally matching a specific session ID."""
+    sessions = get_all_sessions_for_path(path)
+    
+    # If we have a session ID, try to match it
+    if session_id:
+        for sess in sessions:
+            if sess.get('id') == session_id:
+                return (sess.get('title', 'Session'), session_id)
+    
+    # Otherwise return the most recent session for this path
+    if sessions:
+        sess = sessions[0]
+        return (sess.get('title', 'Session'), sess.get('id', ''))
+    
+    # Fallback to directory name
     fallback = os.path.basename(path)
     return (fallback, f"path-{path}")
 
@@ -215,6 +217,10 @@ def fetch_data() -> List[Session]:
         cwd = proc['cwd']
         project_name = os.path.basename(cwd)
 
+        # Check if process is actually still running
+        if not process_exists(pid):
+            continue
+
         is_active, last_active_time = is_process_active(pid)
 
         if is_active:
@@ -232,7 +238,9 @@ def fetch_data() -> List[Session]:
         else:
             time_fmt = ""
 
-        title, session_id = get_session_title(cwd)
+        # Use session_id from process args if available
+        proc_session_id = proc.get('session_id')
+        title, session_id = get_session_title(cwd, proc_session_id)
 
         sessions_data.append({
             'id': session_id,
@@ -246,16 +254,24 @@ def fetch_data() -> List[Session]:
             'agent': proc.get('agent'),
         })
 
+    # Sort all sessions (no deduplication - show each unique session)
     sessions_data.sort(key=lambda s: (
         0 if s['status'] == "active" else (1 if s['status'] == "idle" else 2),
         -(s['last_active_raw'] or 0),
         s['path'],
     ))
 
+    # Deduplicate by session ID (not path) - same session ID means same window
+    seen_session_ids: Set[str] = set()
     active_sessions: List[Session] = []
     seen_dirs: Set[str] = set()
 
     for s in sessions_data:
+        # Skip if we've already seen this exact session
+        if s['id'] in seen_session_ids:
+            continue
+        seen_session_ids.add(s['id'])
+        
         path = s['path']
         parent = os.path.dirname(path)
 
@@ -282,6 +298,6 @@ def fetch_data() -> List[Session]:
 
 
 def cleanup_stale_pids():
-    stale = [pid for pid in _cpu_state if not os.path.exists(f"/proc/{pid}")]
+    stale = [pid for pid in _cpu_state if not process_exists(pid)]
     for pid in stale:
         del _cpu_state[pid]

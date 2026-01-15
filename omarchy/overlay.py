@@ -13,9 +13,9 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gtk4LayerShell', '1.0')
 from gi.repository import Gtk, GLib, Gtk4LayerShell as LayerShell
 
-from .config import CONFIG
-from . import ui
-from . import opencode_data
+from src.config import CONFIG
+from src import opencode_data
+from omarchy import ui
 
 
 class SessionOverlay(Gtk.Window):
@@ -179,4 +179,3 @@ class SessionOverlay(Gtk.Window):
 
         self._request_compact_height()
         GLib.idle_add(self.update_input_region)
-

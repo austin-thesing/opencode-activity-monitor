@@ -2,8 +2,15 @@
 OpenCode Session Activity Monitor - Configuration loading
 """
 
+import sys
 from pathlib import Path
-import tomllib
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+from src.platform import get_config_dir
 
 
 DEFAULT_CONFIG = {
@@ -13,7 +20,7 @@ DEFAULT_CONFIG = {
     "appearance": {
         "background_opacity": 0.55,
         "text_opacity": 0.85,
-        "width": 340,
+        "width": 400,
         "corner_radius": 10,
     },
     "position": {
@@ -24,7 +31,7 @@ DEFAULT_CONFIG = {
         "margin_left": 10,
     },
     "behavior": {
-        "click_through": True,
+        "click_through": False,
     },
     "colors": {
         "ok": "#4caf50",
@@ -50,7 +57,7 @@ def deep_merge(base: dict, override: dict) -> dict:
 def load_config() -> dict:
     """Load config from TOML."""
     config_paths = [
-        Path.home() / ".config" / "opencode-activity-monitor" / "config.toml",
+        get_config_dir() / "config.toml",
         Path(__file__).parent.parent / "config.toml",
         Path(__file__).parent / "config.toml",
     ]
