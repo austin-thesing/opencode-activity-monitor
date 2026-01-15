@@ -1,6 +1,7 @@
 # Cross-platform dependencies
 psutil>=5.9.0
+tomli>=2.0.1; python_version < "3.11"
 
 # macOS dependencies
-pyobjc-core>=10.0; sys_platform == "darwin"
-pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+pyobjc-core>=10.0,<12.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0,<12.0; sys_platform == "darwin"

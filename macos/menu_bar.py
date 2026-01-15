@@ -40,10 +40,11 @@ class MenuBar(NSObject):
         menu = NSMenu.alloc().init()
 
         items = [
-            ("Show/Hide Overlay", "toggleVisibility:", "h"),
-            ("Toggle Click-Through", "toggleClickThrough:", "t"),
+            ("Show/Hide Overlay", "toggleVisibility:", ""),
+            ("Toggle Click-Through", "toggleClickThrough:", ""),
+            ("Reset Position", "resetPosition:", ""),
             None,
-            ("Quit", "quitApp:", "q"),
+            ("Quit", "quitApp:", ""),
         ]
 
         for item in items:
@@ -58,3 +59,18 @@ class MenuBar(NSObject):
                 menu.addItem_(menu_item)
 
         self.status_item.setMenu_(menu)
+
+    def get_button_frame(self):
+        """Get the screen frame of the status item button."""
+        button = self.status_item.button()
+        if not button:
+            return None
+        
+        window = button.window()
+        if not window:
+            return None
+        
+        # Get the button's frame in window coordinates, then convert to screen
+        button_frame = button.frame()
+        screen_rect = window.convertRectToScreen_(button_frame)
+        return screen_rect

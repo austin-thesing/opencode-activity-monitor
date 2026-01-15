@@ -17,7 +17,7 @@ fi
 
 echo ""
 echo "Installing Python dependencies..."
-pip3 install --user pyobjc-core pyobjc-framework-Cocoa psutil
+pip3 install --user -r requirements.txt
 
 echo ""
 echo "Creating install directories..."
@@ -34,12 +34,21 @@ fi
 
 echo ""
 echo "Creating launcher script..."
-cat > "$INSTALL_DIR/run.sh" << 'EOF'
+cat > "$INSTALL_DIR/launcher.sh" << 'EOF'
 #!/bin/bash
+# OpenCode Activity Monitor - Launcher Script
+# This script is called by the LaunchAgent to start the application.
+
+# Navigate to the application directory
 cd "$HOME/Library/Application Support/opencode-activity-monitor"
+
+# Ensure the local bin is in PATH for opencode CLI access
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+
+# Run the application using the system Python
 exec /usr/bin/python3 -m macos.main
 EOF
-chmod +x "$INSTALL_DIR/run.sh"
+chmod +x "$INSTALL_DIR/launcher.sh"
 
 echo ""
 echo "Creating LaunchAgent for auto-start at login..."
@@ -52,7 +61,7 @@ cat > "$PLIST_PATH" << EOF
     <string>com.opencode.activity-monitor</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$INSTALL_DIR/run.sh</string>
+        <string>$INSTALL_DIR/launcher.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

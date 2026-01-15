@@ -47,22 +47,47 @@ class AppDelegate(NSObject):
             None,
             True
         )
+        print(f"[DEBUG] Timer created with interval {interval}s, firing initial refresh")
         self.timer.fire()
 
     def refresh_(self, timer):
         """Refresh session data and update overlay."""
+        import sys
+        print(f"[DEBUG] refresh_ called at {timer.fireDate()}", file=sys.stderr)
         sessions = opencode_data.fetch_data()
+        print(f"[DEBUG] Found {len(sessions)} sessions", file=sys.stderr)
         self.overlay.update_sessions(sessions)
+        
+        # Update position based on menu bar icon
+        if self.menu_bar:
+            frame = self.menu_bar.get_button_frame()
+            if frame:
+                self.overlay.update_position(frame)
 
     @objc.IBAction
     def toggleVisibility_(self, sender):
         """Toggle overlay visibility (menu action)."""
         self.overlay.toggle_visibility()
+        # Immediately update position when showing
+        if self.overlay.window.isVisible() and self.menu_bar:
+            frame = self.menu_bar.get_button_frame()
+            if frame:
+                self.overlay.update_position(frame)
 
     @objc.IBAction
     def toggleClickThrough_(self, sender):
         """Toggle click-through mode (menu action)."""
         self.overlay.toggle_click_through()
+
+    @objc.IBAction
+    def resetPosition_(self, sender):
+        """Reset overlay position to menu bar icon (menu action)."""
+        self.overlay.user_positioned = False
+        self.overlay.expected_position = None
+        if self.menu_bar:
+            frame = self.menu_bar.get_button_frame()
+            if frame:
+                self.overlay.update_position(frame)
 
     @objc.IBAction
     def quitApp_(self, sender):

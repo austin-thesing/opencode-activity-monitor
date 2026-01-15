@@ -204,6 +204,10 @@ def fetch_data() -> List[Session]:
         cwd = proc['cwd']
         project_name = os.path.basename(cwd)
 
+        # Check if process is actually still running
+        if not process_exists(pid):
+            continue
+
         is_active, last_active_time = is_process_active(pid)
 
         if is_active:
@@ -235,7 +239,26 @@ def fetch_data() -> List[Session]:
             'agent': proc.get('agent'),
         })
 
-    sessions_data.sort(key=lambda s: (
+    # Remove duplicate sessions by path, keeping most active
+    seen_paths: Dict[str, dict] = {}
+    for s in sessions_data:
+        path = s['path']
+        status_priority = {"active": 0, "idle": 1, "stale": 2}
+        current_priority = status_priority.get(s['status'], 3)
+        
+        if path not in seen_paths:
+            seen_paths[path] = s
+        else:
+            existing = seen_paths[path]
+            existing_priority = status_priority.get(existing['status'], 3)
+            if current_priority < existing_priority:
+                seen_paths[path] = s
+            elif current_priority == existing_priority and s['last_active_raw'] > existing['last_active_raw']:
+                seen_paths[path] = s
+
+    # Sort unique sessions
+    unique_sessions = list(seen_paths.values())
+    unique_sessions.sort(key=lambda s: (
         0 if s['status'] == "active" else (1 if s['status'] == "idle" else 2),
         -(s['last_active_raw'] or 0),
         s['path'],
@@ -244,7 +267,7 @@ def fetch_data() -> List[Session]:
     active_sessions: List[Session] = []
     seen_dirs: Set[str] = set()
 
-    for s in sessions_data:
+    for s in unique_sessions:
         path = s['path']
         parent = os.path.dirname(path)
 
