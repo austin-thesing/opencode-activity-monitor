@@ -65,9 +65,9 @@ class OverlayWindow:
         content_bounds = self.window.contentView().bounds()
         self.effect_view = NSVisualEffectView.alloc().initWithFrame_(content_bounds)
         
-        # Use dark material - HUDWindow (11) or Dark (2)
-        # HUDWindow gives that dark translucent look
-        self.effect_view.setMaterial_(2)  # Dark material
+        # Use HUDWindow material for consistent dark appearance regardless of system theme
+        # Material 11 = NSVisualEffectMaterialHUDWindow (always dark)
+        self.effect_view.setMaterial_(11)
         
         # Blending mode: 0 = behindWindow (blur what's behind), 1 = withinWindow
         self.effect_view.setBlendingMode_(0)
