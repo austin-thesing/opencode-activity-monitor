@@ -47,12 +47,10 @@ class AppDelegate(NSObject):
             None,
             True
         )
-        print(f"[DEBUG] Timer created with interval {interval}s, firing initial refresh")
         self.timer.fire()
 
     def refresh_(self, timer):
         """Refresh session data and update overlay."""
-        import sys
         sessions = opencode_data.fetch_data()
         self.overlay.update_sessions(sessions)
         

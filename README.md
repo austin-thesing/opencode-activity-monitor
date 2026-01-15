@@ -37,8 +37,7 @@ sudo pacman -S python-gobject gtk4 gtk4-layer-shell
 ```bash
 git clone <repo>
 cd opencode-activity-monitor
-chmod +x install-macos.sh
-./install-macos.sh
+./install.sh
 ```
 
 The installer will:
@@ -55,7 +54,7 @@ launchctl unload ~/Library/LaunchAgents/com.opencode.activity-monitor.plist  # S
 
 **Uninstall:**
 ```bash
-./uninstall-macos.sh
+./uninstall.sh
 ```
 
 ### Linux (Hyprland)
@@ -63,7 +62,6 @@ launchctl unload ~/Library/LaunchAgents/com.opencode.activity-monitor.plist  # S
 ```bash
 git clone <repo>
 cd opencode-activity-monitor
-chmod +x install.sh
 ./install.sh
 ```
 
@@ -142,10 +140,10 @@ After editing, restart: `pkill -f opencode-activity-monitor && opencode-activity
 
 **Linux:**
 ```
-~/.config/opencode-activity-monitor/config.toml   # Configuration
-~/.local/share/opencode-activity-monitor/main.py  # Application
-~/.local/bin/opencode-activity-monitor            # Launcher script
-~/.local/bin/opencode-activity-monitor-toggle     # Toggle script
+~/.config/opencode-activity-monitor/config.toml     # Configuration
+~/.local/share/opencode-activity-monitor/omarchy/   # Application
+~/.local/bin/opencode-activity-monitor              # Launcher script
+~/.local/bin/opencode-activity-monitor-toggle       # Toggle script
 ```
 
 ## Manual Run
@@ -157,7 +155,7 @@ python3 -m macos.main
 
 **Linux:**
 ```bash
-LD_PRELOAD=/usr/lib/libgtk4-layer-shell.so python3 src/main.py
+LD_PRELOAD=/usr/lib/libgtk4-layer-shell.so python3 -m omarchy.main
 ```
 
 ## **Disclaimer:** This is a community project for OpenCode and is not maintained by the OpenCode creators.

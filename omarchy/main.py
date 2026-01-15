@@ -13,8 +13,8 @@ from gi.repository import Gtk, GLib
 import os
 import signal
 
-from .overlay import SessionOverlay
-from .tray_manager import start_tray_process
+from omarchy.overlay import SessionOverlay
+from omarchy.tray_manager import start_tray_process
 
 
 _window = None
@@ -59,4 +59,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,5 +1,9 @@
 #!/bin/bash
+# OpenCode Activity Monitor - macOS Installer
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 APP_NAME="opencode-activity-monitor"
 INSTALL_DIR="$HOME/Library/Application Support/$APP_NAME"
@@ -9,27 +13,32 @@ PLIST_NAME="com.opencode.activity-monitor.plist"
 PLIST_PATH="$LAUNCH_AGENT_DIR/$PLIST_NAME"
 
 echo "Installing OpenCode Activity Monitor for macOS..."
-
-if [ ! -d "$(pwd)/macos" ]; then
-    echo "Error: Please run this script from the repository root directory."
-    exit 1
-fi
-
 echo ""
+
 echo "Installing Python dependencies..."
-pip3 install --user -r requirements.txt
+pip3 install --user -r "$REPO_ROOT/requirements.txt"
 
 echo ""
 echo "Creating install directories..."
-mkdir -p "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR/src"
+mkdir -p "$INSTALL_DIR/macos"
 mkdir -p "$LAUNCH_AGENT_DIR"
 
-echo "Copying application files..."
-cp -r src/ "$INSTALL_DIR/src/"
-cp -r macos/ "$INSTALL_DIR/macos/"
-if [ -f "config.toml" ]; then
+echo "Copying shared source files..."
+cp "$REPO_ROOT/src/__init__.py" "$INSTALL_DIR/src/"
+cp "$REPO_ROOT/src/config.py" "$INSTALL_DIR/src/"
+cp "$REPO_ROOT/src/opencode_data.py" "$INSTALL_DIR/src/"
+cp "$REPO_ROOT/src/platform.py" "$INSTALL_DIR/src/"
+
+echo "Copying macOS application files..."
+cp "$REPO_ROOT/macos/__init__.py" "$INSTALL_DIR/macos/"
+cp "$REPO_ROOT/macos/main.py" "$INSTALL_DIR/macos/"
+cp "$REPO_ROOT/macos/overlay.py" "$INSTALL_DIR/macos/"
+cp "$REPO_ROOT/macos/menu_bar.py" "$INSTALL_DIR/macos/"
+
+if [ -f "$REPO_ROOT/config.toml" ]; then
     mkdir -p "$CONFIG_DIR"
-    cp config.toml "$CONFIG_DIR/config.toml"
+    cp "$REPO_ROOT/config.toml" "$CONFIG_DIR/config.toml"
 fi
 
 echo ""

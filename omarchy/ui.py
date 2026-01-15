@@ -3,7 +3,7 @@ OpenCode Session Activity Monitor - UI Components
 """
 
 from gi.repository import Gtk, Gdk, Pango
-from .config import CONFIG
+from src.config import CONFIG
 
 
 def get_css() -> bytes:

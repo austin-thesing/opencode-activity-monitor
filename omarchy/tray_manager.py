@@ -8,8 +8,8 @@ import sys
 
 
 def start_tray_process(parent_pid: int) -> None:
-    src_dir = os.path.dirname(os.path.abspath(__file__))
-    tray_script = os.path.join(src_dir, "tray.py")
+    omarchy_dir = os.path.dirname(os.path.abspath(__file__))
+    tray_script = os.path.join(omarchy_dir, "tray.py")
 
     if not os.path.exists(tray_script):
         return
