@@ -136,40 +136,53 @@ def get_running_processes() -> List[dict]:
     return processes
 
 
-def get_session_title(path: str) -> tuple[str, str]:
+def get_all_sessions_for_path(path: str) -> List[dict]:
+    """Get all sessions for a given path."""
     now = time.time()
-
-    if path in _title_cache:
-        title, session_id, fetched_at = _title_cache[path]
+    cache_key = f"all_{path}"
+    
+    if cache_key in _title_cache:
+        sessions, fetched_at = _title_cache[cache_key]
         if now - fetched_at < _TITLE_CACHE_TTL:
-            return (title, session_id)
+            return sessions
 
     try:
         output = subprocess.check_output(
-            ["opencode", "session", "list", "--format", "json", "--max-count", "5"],
+            ["opencode", "session", "list", "--format", "json", "--max-count", "20"],
             stderr=subprocess.DEVNULL,
             cwd=path,
             timeout=2,
         )
         sessions = json.loads(output)
-
-        for sess in sessions:
-            if sess.get('directory') == path:
-                title = sess.get('title', 'Session')
-                session_id = sess.get('id', '')
-                _title_cache[path] = (title, session_id, now)
-                return (title, session_id)
-
-        if sessions:
-            title = sessions[0].get('title', 'Session')
-            session_id = sessions[0].get('id', '')
-            _title_cache[path] = (title, session_id, now)
-            return (title, session_id)
+        
+        # Filter to sessions matching this directory
+        matching = [s for s in sessions if s.get('directory') == path]
+        _title_cache[cache_key] = (matching, now)
+        return matching
 
     except (subprocess.CalledProcessError, FileNotFoundError,
             subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
         pass
 
+    return []
+
+
+def get_session_title(path: str, session_id: Optional[str] = None) -> tuple[str, str]:
+    """Get session title, optionally matching a specific session ID."""
+    sessions = get_all_sessions_for_path(path)
+    
+    # If we have a session ID, try to match it
+    if session_id:
+        for sess in sessions:
+            if sess.get('id') == session_id:
+                return (sess.get('title', 'Session'), session_id)
+    
+    # Otherwise return the most recent session for this path
+    if sessions:
+        sess = sessions[0]
+        return (sess.get('title', 'Session'), sess.get('id', ''))
+    
+    # Fallback to directory name
     fallback = os.path.basename(path)
     return (fallback, f"path-{path}")
 
@@ -225,7 +238,9 @@ def fetch_data() -> List[Session]:
         else:
             time_fmt = ""
 
-        title, session_id = get_session_title(cwd)
+        # Use session_id from process args if available
+        proc_session_id = proc.get('session_id')
+        title, session_id = get_session_title(cwd, proc_session_id)
 
         sessions_data.append({
             'id': session_id,
@@ -239,35 +254,24 @@ def fetch_data() -> List[Session]:
             'agent': proc.get('agent'),
         })
 
-    # Remove duplicate sessions by path, keeping most active
-    seen_paths: Dict[str, dict] = {}
-    for s in sessions_data:
-        path = s['path']
-        status_priority = {"active": 0, "idle": 1, "stale": 2}
-        current_priority = status_priority.get(s['status'], 3)
-        
-        if path not in seen_paths:
-            seen_paths[path] = s
-        else:
-            existing = seen_paths[path]
-            existing_priority = status_priority.get(existing['status'], 3)
-            if current_priority < existing_priority:
-                seen_paths[path] = s
-            elif current_priority == existing_priority and s['last_active_raw'] > existing['last_active_raw']:
-                seen_paths[path] = s
-
-    # Sort unique sessions
-    unique_sessions = list(seen_paths.values())
-    unique_sessions.sort(key=lambda s: (
+    # Sort all sessions (no deduplication - show each unique session)
+    sessions_data.sort(key=lambda s: (
         0 if s['status'] == "active" else (1 if s['status'] == "idle" else 2),
         -(s['last_active_raw'] or 0),
         s['path'],
     ))
 
+    # Deduplicate by session ID (not path) - same session ID means same window
+    seen_session_ids: Set[str] = set()
     active_sessions: List[Session] = []
     seen_dirs: Set[str] = set()
 
-    for s in unique_sessions:
+    for s in sessions_data:
+        # Skip if we've already seen this exact session
+        if s['id'] in seen_session_ids:
+            continue
+        seen_session_ids.add(s['id'])
+        
         path = s['path']
         parent = os.path.dirname(path)
 
