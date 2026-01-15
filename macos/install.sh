@@ -15,8 +15,54 @@ PLIST_PATH="$LAUNCH_AGENT_DIR/$PLIST_NAME"
 echo "Installing OpenCode Activity Monitor for macOS..."
 echo ""
 
+# Detect Python 3 installation
+echo "Detecting Python installation..."
+PYTHON_PATH=""
+
+# Check common macOS Python locations in order of preference
+for candidate in "/opt/homebrew/bin/python3" "/usr/local/bin/python3" "/usr/bin/python3"; do
+    if [ -x "$candidate" ]; then
+        PYTHON_PATH="$candidate"
+        break
+    fi
+done
+
+# Fall back to PATH lookup
+if [ -z "$PYTHON_PATH" ]; then
+    PYTHON_PATH="$(command -v python3 2>/dev/null || true)"
+fi
+
+if [ -z "$PYTHON_PATH" ] || [ ! -x "$PYTHON_PATH" ]; then
+    echo "Error: Python 3 not found."
+    echo ""
+    echo "Please install Python 3 via Homebrew:"
+    echo "  brew install python"
+    echo ""
+    echo "Or download from https://www.python.org/downloads/"
+    exit 1
+fi
+
+echo "Found Python: $PYTHON_PATH"
+echo "Version: $("$PYTHON_PATH" --version)"
+echo ""
+
+# Get pip for this Python
+PIP_PATH="${PYTHON_PATH%python3}pip3"
+if [ ! -x "$PIP_PATH" ]; then
+    PIP_PATH="$PYTHON_PATH -m pip"
+fi
+
 echo "Installing Python dependencies..."
-pip3 install --user -r "$REPO_ROOT/requirements.txt"
+$PIP_PATH install --user -r "$REPO_ROOT/requirements.txt"
+
+# Verify PyObjC installed correctly
+if ! "$PYTHON_PATH" -c "import AppKit" 2>/dev/null; then
+    echo ""
+    echo "Error: PyObjC not installed correctly for $PYTHON_PATH"
+    echo "Try: $PIP_PATH install --user pyobjc-framework-Cocoa"
+    exit 1
+fi
+echo "PyObjC verified."
 
 echo ""
 echo "Creating install directories..."
@@ -43,19 +89,19 @@ fi
 
 echo ""
 echo "Creating launcher script..."
-cat > "$INSTALL_DIR/launcher.sh" << 'EOF'
+cat > "$INSTALL_DIR/launcher.sh" << EOF
 #!/bin/bash
 # OpenCode Activity Monitor - Launcher Script
 # This script is called by the LaunchAgent to start the application.
 
 # Navigate to the application directory
-cd "$HOME/Library/Application Support/opencode-activity-monitor"
+cd "\$HOME/Library/Application Support/opencode-activity-monitor"
 
 # Ensure the local bin is in PATH for opencode CLI access
-export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+export PATH="\$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
 
-# Run the application using the system Python
-exec /usr/bin/python3 -m macos.main
+# Run the application using the detected Python
+exec "$PYTHON_PATH" -m macos.main
 EOF
 chmod +x "$INSTALL_DIR/launcher.sh"
 
