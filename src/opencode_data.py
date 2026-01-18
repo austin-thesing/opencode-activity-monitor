@@ -51,7 +51,7 @@ def get_cpu_time(pid: int) -> Optional[int]:
     return get_process_cpu_time(pid)
 
 
-def is_process_active(pid: int, threshold_ticks: int = 10) -> tuple[bool, float]:
+def is_process_active(pid: int, threshold_ticks: int = 5) -> tuple[bool, float]:
     now = time.time()
     cpu_time = get_cpu_time(pid)
 
@@ -62,8 +62,9 @@ def is_process_active(pid: int, threshold_ticks: int = 10) -> tuple[bool, float]
         return (False, 0)
 
     if pid not in _cpu_state:
-        _cpu_state[pid] = (cpu_time, now, 0)
-        return (False, 0)
+        # First time seeing this process - assume it's active now
+        _cpu_state[pid] = (cpu_time, now, now)
+        return (True, now)
 
     last_cpu, last_check, last_active = _cpu_state[pid]
     time_delta = now - last_check

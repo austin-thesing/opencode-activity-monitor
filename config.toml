@@ -18,7 +18,7 @@ refresh_interval_ms = 5000
 [appearance]
 # Background opacity: 0.0 = fully transparent, 1.0 = fully opaque
 # Recommended: 0.3-0.6 for a nice see-through effect
-background_opacity = 0.55
+background_opacity = 0.85
 
 # Text opacity: how visible the text is
 # Recommended: 0.7-0.95
@@ -69,4 +69,4 @@ critical = "#f44336" # Red - stale
 provider = "#64b5f6" # Light blue
 
 # Background color (RGB only, opacity is set above)
-background = "10, 12, 16"
+background = "20, 22, 28"
