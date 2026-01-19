@@ -138,7 +138,7 @@ class OverlayWindow:
         header_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
 
         # Title
-        title_font = tkfont.Font(family="Consolas", size=11, weight="bold")
+        title_font = tkfont.Font(family="Courier New", size=11, weight="bold")
         title_label = tk.Label(
             header_frame,
             text="OPENCODE",
