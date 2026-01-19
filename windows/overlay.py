@@ -55,10 +55,10 @@ class OverlayWindow:
         }
 
         # Parse background color (RGB format: "10, 12, 16")
-        bg_rgb = CONFIG["colors"]["background"]
-        if isinstance(bg_rgb, str):
-            r, g, b = [int(x.strip()) for x in bg_rgb.split(",")]
-        else:
+        bg_rgb_str = CONFIG["colors"]["background"]
+        try:
+            r, g, b = [int(x.strip()) for x in bg_rgb_str.split(",")]
+        except (ValueError, TypeError, AttributeError):
             r, g, b = 10, 12, 16
         self.bg_color = f"#{r:02x}{g:02x}{b:02x}"
 
